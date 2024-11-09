@@ -209,7 +209,7 @@ in {
     acceptTerms = true;
     defaults = {
       email = MAINTAINER_EMAIL;
-      enableDebugLogs = true;
+      # enableDebugLogs = true;
       dnsResolver = "1.1.1.1:53";
     };
     certs = {
