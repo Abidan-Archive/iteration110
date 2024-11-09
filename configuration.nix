@@ -171,6 +171,7 @@ in {
         '';
 
         extraConfig = ''
+          index index.php;
           add_header X-Frame-Options "SAMEORIGIN";
           add_header X-XSS-Protection "1; mode=block";
           add_header X-Content-Type-Options "nosniff";
@@ -235,14 +236,9 @@ in {
         "pm.min_spare_servers" = 2;
         "pm.max_spare_servers" = 4;
         "pm.max_requests" = 500;
-        # "security.limit_extensions" = ".php";
-        # "php_admin_value[disable_functions]" = "exec,passthru,shell_exec,system";
-        # "php_admin_flag[allow_url_fopen]" = "off";
-
-        "php_flag[display_errors]" = "on";
-        "php_admin_value[error_log]" = "/var/log/fpm-php.www.log";
-        "php_admin_flag[log_errors]" = "on";
-        "catch_workers_output" = "yes";
+        "security.limit_extensions" = ".php";
+        "php_admin_value[disable_functions]" = "exec,passthru,shell_exec,system";
+        "php_admin_flag[allow_url_fopen]" = "off";
       };
     };
   };
