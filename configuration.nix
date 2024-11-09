@@ -6,8 +6,9 @@
 }: let
   MAINTAINER_EMAIL = "hey@manning390.com";
   USER = "HOSTNAME";
-  DOMAIN = "abidanarchive.com";
-  DB = "abidan";
+  DOMAIN = "next.abidanarchive.com";
+  app = "abidan";
+  dataDir = "/srv/http";
 in {
   imports = [
     # Include the results of the hardware scan.
@@ -19,43 +20,40 @@ in {
 
   nix.settings.experimental-features = ["nix-command" "flakes"];
 
-  #networking.enableIPv6 = false;
+  # For some reason on this nixos system on linode vm dns queries over ipv6 fail
+  # lego, the ACME software, refuses to make a flag to force ipv4 and strong prefers ipv6
+  # unless can solve why ipv6 fails, turning it off entirely and forcing ipv4 is best option
+  networking.enableIPv6 = false; 
   networking.usePredictableInterfaceNames = false; # Linode: Linode guides assume eth0
   networking.useDHCP = false; # Linode: Disable DHCP globally, will not need it
   networking.interfaces.eth0.useDHCP = true; # Linode: Required for ssh?
   # Open ports in the firewall.
   networking.firewall.allowedTCPPorts = [80 443];
+  networking.nameservers = [
+    "8.8.8.8"
+    "1.1.1.1"
+    # "2001:4860:4860::8888" # No need when ipv6 is off
+    # "2001:4860:4860::8844" # No need when ipv6 is off
+  ];
 
   # Linode region is Atlanta
   time.timeZone = "America/New_York";
 
-  # Secret management
-  sops = {
-    defaultSopsFile = ./secrets.yaml;
-    defaultSopsFormat = "yaml";
-    age.keyFile = "/home/${USER}/.config/sops/age/keys.txt";
-    secrets = {
-      DB_PASS = {};
-      MEILISEARCH_KEY = {
-        mode = "0440";
-      };
-      ACME_KEY = {
-        mode = "0440";
-        group = "nginx";
-      };
-      LONGVIEW_KEY = {};
-    };
-    templates."MEILISEARCH_KEY_FILE".content = "MEILI_MASTER_KEY=${config.sops.placeholder.MEILISEARCH_KEY}";
-  };
-
   users.users."${USER}" = {
     isNormalUser = true;
     home = "/home/${USER}";
-    extraGroups = ["wheel" "networkmanager" "nginx" "www-data"];
+    extraGroups = ["wheel" "networkmanager" "nginx"];
     openssh.authorizedKeys.keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHJbtlS3h7escz5e1Jgdgc4ZHfH4adAxNq9AwXPWw0+a ${USER}"];
   };
   users.groups.nginx = {};
-  users.users.nginx.extraGroups = ["nginx"];
+  users.users.nginx.extraGroups = ["acme"];
+  users.groups.abidan = {};
+  users.users."${app}" = {
+    isSystemUser = true;
+    group = app;
+    extraGroups = ["nginx"];
+    home = dataDir;
+  };
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
@@ -92,6 +90,25 @@ in {
     audiowaveform # Required by app for generating waveform .dats
   ];
 
+  # Secret management
+  sops = {
+    defaultSopsFile = ./secrets.yaml;
+    defaultSopsFormat = "yaml";
+    age.keyFile = "/home/${USER}/.config/sops/age/keys.txt";
+    secrets = {
+      DB_PASS = {};
+      MEILISEARCH_KEY = {
+        mode = "0440";
+      };
+      ACME_KEY = {
+        mode = "0440";
+        group = "acme";
+      };
+      LONGVIEW_KEY = {};
+    };
+    templates."MEILISEARCH_KEY_FILE".content = "MEILI_MASTER_KEY=${config.sops.placeholder.MEILISEARCH_KEY}";
+  };
+
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   programs.mtr.enable = true;
@@ -124,17 +141,17 @@ in {
     recommendedTlsSettings = true;
 
     virtualHosts = {
-      "next.${DOMAIN}" = {
+      "${DOMAIN}" = {
         default = true;
         forceSSL = true;
         enableACME = true;
 
-        root = "/home/${USER}/www/${DOMAIN}/current/public";
+        root = "${dataDir}/${DOMAIN}";
 
         locations."/".tryFiles = "$uri $uri/ /index.php?$query_string";
 
         locations."~ \\.php$".extraConfig = ''
-          fastcgi_pass unix:${config.services.phpfpm.pools."${DB}".socket};
+          fastcgi_pass unix:${config.services.phpfpm.pools."${app}".socket};
           fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
           fastcgi_index index.php;
           include ${pkgs.nginx}/conf/fastcgi_params;
@@ -171,17 +188,17 @@ in {
     };
 
     appendHttpConfig = ''
-         server {
-           listen 127.0.0.1;
-           server_name localhost;
+      server {
+        listen 127.0.0.1;
+        server_name localhost;
 
-           location /nginx_status {
-      stub_status on;
-      access_log off;
-      allow 127.0.0.1;
-      deny all;
-           }
-         }
+        location /nginx_status {
+          stub_status on;
+          access_log off;
+          allow 127.0.0.1;
+          deny all;
+        }
+      }
     '';
   };
 
@@ -190,24 +207,26 @@ in {
   # and readable by the nginx user.
   security.acme = {
     acceptTerms = true;
-    defaults.email = MAINTAINER_EMAIL;
-    defaults.group = "nginx";
+    defaults = {
+      email = MAINTAINER_EMAIL;
+      enableDebugLogs = true;
+      dnsResolver = "1.1.1.1:53";
+    };
     certs = {
-      "next.${DOMAIN}" = {
+      "${DOMAIN}" = {
         dnsProvider = "linode";
         webroot = null;
         credentialFiles."LINODE_TOKEN_FILE" = config.sops.secrets.ACME_KEY.path;
-        group = config.services.nginx.group;
-        dnsPropagationCheck = false; # Disabling until can figure out what's causing this to fail. ipv6?
+        # group = config.services.nginx.group;
+        #dnsPropagationCheck = false; # In case of debugging
       };
     };
   };
 
   services.phpfpm = {
     phpPackage = pkgs.php83;
-    pools."${DB}" = {
-      user = "nginx";
-      group = "nginx";
+    pools."${app}" = {
+      user = app;
       settings = {
         "listen.owner" = config.services.nginx.user;
         "pm" = "dynamic";
@@ -216,13 +235,14 @@ in {
         "pm.min_spare_servers" = 2;
         "pm.max_spare_servers" = 4;
         "pm.max_requests" = 500;
-        "security.limit_extensions" = ".php";
-        "php_admin_value[disable_functions]" = "exec,passthru,shell_exec,system";
-        "php_admin_flag[allow_url_fopen]" = "off";
+        # "security.limit_extensions" = ".php";
+        # "php_admin_value[disable_functions]" = "exec,passthru,shell_exec,system";
+        # "php_admin_flag[allow_url_fopen]" = "off";
 
         "php_flag[display_errors]" = "on";
         "php_admin_value[error_log]" = "/var/log/fpm-php.www.log";
         "php_admin_flag[log_errors]" = "on";
+        "catch_workers_output" = "yes";
       };
     };
   };
@@ -230,11 +250,11 @@ in {
   services.mysql = {
     enable = true;
     package = pkgs.mariadb;
-    ensureDatabases = [DB];
+    ensureDatabases = [app];
     ensureUsers = [
       {
         name = USER;
-        ensurePermissions = {"${DB}.*" = "ALL PRIVILEGES";};
+        ensurePermissions = {"${app}.*" = "ALL PRIVILEGES";};
       }
       {
         name = "longview";
