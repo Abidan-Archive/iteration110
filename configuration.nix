@@ -81,6 +81,7 @@ in {
           session
           tokenizer
           xml
+          redis
         ]);
       extraConfig = ''
       '';
@@ -97,15 +98,14 @@ in {
     age.keyFile = "/home/${USER}/.config/sops/age/keys.txt";
     secrets = {
       ENV_KEY = {};
-      DB_PASS = {};
-      MEILISEARCH_KEY = {
-        mode = "0440";
-      };
+      DB_PW = {};
+      MEILISEARCH_KEY = {};
       ACME_KEY = {
         mode = "0440";
         group = "acme";
       };
       LONGVIEW_KEY = {};
+      LONGVIEW_DB_PW = {};
     };
     templates."MEILISEARCH_KEY_FILE".content = "MEILI_MASTER_KEY=${config.sops.placeholder.MEILISEARCH_KEY}";
   };
@@ -127,11 +127,25 @@ in {
     settings.PermitRootLogin = "no";
   };
 
-  # Linode: metric gathering service
-  services.longview = {
-    enable = true;
-    apiKeyFile = config.sops.secrets.LONGVIEW_KEY.path;
-    mysqlUser = "longview";
+  # SSL certificate renawl settings
+  # /var/lib/acme.challenges must be writable by the ACME user
+  # and readable by the nginx user.
+  security.acme = {
+    acceptTerms = true;
+    defaults = {
+      email = MAINTAINER_EMAIL;
+      # enableDebugLogs = true;
+      dnsResolver = "1.1.1.1:53";
+    };
+    certs = {
+      "${DOMAIN}" = {
+        dnsProvider = "linode";
+        webroot = null;
+        credentialFiles."LINODE_TOKEN_FILE" = config.sops.secrets.ACME_KEY.path;
+        # group = config.services.nginx.group;
+        #dnsPropagationCheck = false; # In case of debugging
+      };
+    };
   };
 
   services.nginx = {
@@ -204,38 +218,18 @@ in {
     '';
   };
 
-  # SSL certificate renawl settings
-  # /var/lib/acme.challenges must be writable by the ACME user
-  # and readable by the nginx user.
-  security.acme = {
-    acceptTerms = true;
-    defaults = {
-      email = MAINTAINER_EMAIL;
-      # enableDebugLogs = true;
-      dnsResolver = "1.1.1.1:53";
-    };
-    certs = {
-      "${DOMAIN}" = {
-        dnsProvider = "linode";
-        webroot = null;
-        credentialFiles."LINODE_TOKEN_FILE" = config.sops.secrets.ACME_KEY.path;
-        # group = config.services.nginx.group;
-        #dnsPropagationCheck = false; # In case of debugging
-      };
-    };
-  };
-
   services.phpfpm = {
     phpPackage = pkgs.php83;
     pools."${app}" = {
       user = app;
       settings = {
         "listen.owner" = config.services.nginx.user;
-        "pm" = "dynamic";
-        "pm.max_children" = 32;
+        "pm" = "ondemand";
+        "pm.max_children" = 10;
         "pm.start_servers" = 2;
-        "pm.min_spare_servers" = 2;
-        "pm.max_spare_servers" = 4;
+        "pm.min_spare_servers" = 1;
+        "pm.max_spare_servers" = 3;
+        "pm.process_idle_timeout" = "10s";
         "pm.max_requests" = 500;
         "security.limit_extensions" = ".php";
         "php_admin_value[disable_functions]" = "exec,passthru,shell_exec,system";
@@ -255,15 +249,45 @@ in {
       }
       {
         name = "longview";
-        ensurePermissions = {"*.*" = "PROCESS, REPLICATION CLIENT";};
+        ensurePermissions = {"*.*" = "SELECT, SHOW VIEW, SHOW DATABASES, PROCESS, REPLICATION CLIENT";};
       }
     ];
+  };
+
+  systemd.services.mysql-set-passwords = {
+    description = "Set MySQL user password";
+    wants = ["mysql.service"];
+    after = [ "sops-nix.service" "mysql.service"];
+    wantedBy = ["multi-user.target"];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      User = "root";
+      ExecStart = ''
+        ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${app}'@'localhost' IDENTIFIED BY '$(echo ${config.sops.secrets.DB_PW.path})'"
+        ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${config.services.longview.mysqlUser}'@'localhost' IDENTIFIED BY '$(echo ${config.sops.secrets.LONGVIEW_DB_PW.path})'"
+      '';
+    };
   };
 
   services.meilisearch = {
     enable = true;
     environment = "production";
     masterKeyEnvironmentFile = config.sops.templates.MEILISEARCH_KEY_FILE.path;
+  };
+
+  services.redis = {
+    enable = true;
+    port = 6379;
+    bind = "127.0.0.1";
+  };
+
+  # Linode: metric gathering service
+  services.longview = {
+    enable = true;
+    apiKeyFile = config.sops.secrets.LONGVIEW_KEY.path;
+    mysqlUser = "longview";
+    mysqlPasswordFile = config.sops.secrets.LONGVIEW_DB_PW.path;
   };
 
   # This option defines the first version of NixOS you have installed on this particular machine,
