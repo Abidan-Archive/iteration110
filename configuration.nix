@@ -23,7 +23,7 @@ in {
   # For some reason on this nixos system on linode vm dns queries over ipv6 fail
   # lego, the ACME software, refuses to make a flag to force ipv4 and strong prefers ipv6
   # unless can solve why ipv6 fails, turning it off entirely and forcing ipv4 is best option
-  networking.enableIPv6 = false; 
+  networking.enableIPv6 = false;
   networking.usePredictableInterfaceNames = false; # Linode: Linode guides assume eth0
   networking.useDHCP = false; # Linode: Disable DHCP globally, will not need it
   networking.interfaces.eth0.useDHCP = true; # Linode: Required for ssh?
@@ -257,7 +257,7 @@ in {
   systemd.services.mysql-set-passwords = {
     description = "Set MySQL user password";
     wants = ["mysql.service"];
-    after = [ "sops-nix.service" "mysql.service"];
+    after = ["sops-nix.service" "mysql.service"];
     wantedBy = ["multi-user.target"];
     serviceConfig = {
       Type = "oneshot";
@@ -278,8 +278,11 @@ in {
 
   services.redis = {
     enable = true;
-    port = 6379;
-    bind = "127.0.0.1";
+    servers."${app}" = {
+      enable = true;
+      port = 6379;
+      bind = "127.0.0.1";
+    };
   };
 
   # Linode: metric gathering service
