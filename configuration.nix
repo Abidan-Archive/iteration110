@@ -277,7 +277,6 @@ in {
   };
 
   services.redis = {
-    enable = true;
     servers."${app}" = {
       enable = true;
       port = 6379;
