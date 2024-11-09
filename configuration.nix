@@ -244,7 +244,7 @@ in {
     ensureDatabases = [app];
     ensureUsers = [
       {
-        name = USER;
+        name = app;
         ensurePermissions = {"${app}.*" = "ALL PRIVILEGES";};
       }
       {
