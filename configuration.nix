@@ -107,7 +107,10 @@ in {
       LONGVIEW_KEY = {};
       LONGVIEW_DB_PW = {};
     };
-    templates."MEILISEARCH_KEY_FILE".content = "MEILI_MASTER_KEY=${config.sops.placeholder.MEILISEARCH_KEY}";
+    templates = {
+      "MEILISEARCH_KEY_FILE".content = "MEILI_MASTER_KEY=${config.sops.placeholder.MEILISEARCH_KEY}";
+      "LONGVIEW_DB_PW_FILE".content = "password ${config.sops.placeholder.LONGVIEW_DB_PW}";
+    };
   };
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -248,7 +251,7 @@ in {
         ensurePermissions = {"${app}.*" = "ALL PRIVILEGES";};
       }
       {
-        name = "longview";
+        name = config.services.longview.mysqlUser;
         ensurePermissions = {"*.*" = "SELECT, SHOW VIEW, SHOW DATABASES, PROCESS, REPLICATION CLIENT";};
       }
     ];
@@ -264,8 +267,7 @@ in {
       RemainAfterExit = true;
       User = "root";
       ExecStart = ''
-        ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${app}'@'localhost' IDENTIFIED BY '$(echo ${config.sops.secrets.DB_PW.path})'"
-        ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${config.services.longview.mysqlUser}'@'localhost' IDENTIFIED BY '$(echo ${config.sops.secrets.LONGVIEW_DB_PW.path})'"
+        ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${app}'@'localhost' IDENTIFIED BY '$(cat ${config.sops.secrets.DB_PW.path})'; ALTER USER '${config.services.longview.mysqlUser}'@'localhost' IDENTIFIED BY '$(cat ${config.sops.secrets.LONGVIEW_DB_PW.path})';"
       '';
     };
   };
@@ -289,7 +291,7 @@ in {
     enable = true;
     apiKeyFile = config.sops.secrets.LONGVIEW_KEY.path;
     mysqlUser = "longview";
-    mysqlPasswordFile = config.sops.secrets.LONGVIEW_DB_PW.path;
+    mysqlPasswordFile = config.sops.templates.LONGVIEW_DB_PW_FILE.path;
   };
 
   # This option defines the first version of NixOS you have installed on this particular machine,
