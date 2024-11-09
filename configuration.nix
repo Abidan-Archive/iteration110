@@ -5,7 +5,7 @@
   ...
 }: let
   MAINTAINER_EMAIL = "hey@manning390.com";
-  USER = "HOSTNAME";
+  USER = "HOST_USER";
   DOMAIN = "next.abidanarchive.com";
   app = "abidan";
   dataDir = "/srv/http";
@@ -96,6 +96,7 @@ in {
     defaultSopsFormat = "yaml";
     age.keyFile = "/home/${USER}/.config/sops/age/keys.txt";
     secrets = {
+      ENV_KEY = {};
       DB_PASS = {};
       MEILISEARCH_KEY = {
         mode = "0440";
@@ -146,7 +147,7 @@ in {
         forceSSL = true;
         enableACME = true;
 
-        root = "${dataDir}/${DOMAIN}";
+        root = "${dataDir}/${DOMAIN}/current/public";
 
         locations."/".tryFiles = "$uri $uri/ /index.php?$query_string";
 
