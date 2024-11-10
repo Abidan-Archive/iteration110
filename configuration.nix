@@ -8,7 +8,8 @@
   USER = "HOST_USER";
   DOMAIN = "next.abidanarchive.com";
   app = "abidan";
-  dataDir = "/srv/http";
+  dataDir = "/home/${USER}";
+  hostPath = "/srv/http";
 in {
   imports = [
     # Include the results of the hardware scan.
@@ -41,8 +42,8 @@ in {
 
   users.users."${USER}" = {
     isNormalUser = true;
-    home = "/home/${USER}";
-    extraGroups = ["wheel" "networkmanager" "nginx"];
+    home = dataDir;
+    extraGroups = ["wheel" "networkmanager" "nginx" app];
     openssh.authorizedKeys.keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHJbtlS3h7escz5e1Jgdgc4ZHfH4adAxNq9AwXPWw0+a ${USER}"];
   };
   users.groups.nginx = {};
@@ -52,7 +53,7 @@ in {
     isSystemUser = true;
     group = app;
     extraGroups = ["nginx"];
-    home = dataDir;
+    home = hostPath;
   };
 
   # List packages installed in system profile. To search, run:
@@ -97,7 +98,10 @@ in {
     defaultSopsFormat = "yaml";
     age.keyFile = "/home/${USER}/.config/sops/age/keys.txt";
     secrets = {
-      ENV_KEY = {};
+      ENV_KEY = {
+        mode = "0440";
+        group = app;
+      };
       DB_PW = {};
       MEILISEARCH_KEY = {};
       ACME_KEY = {
@@ -109,7 +113,6 @@ in {
     };
     templates = {
       "MEILISEARCH_KEY_FILE".content = "MEILI_MASTER_KEY=${config.sops.placeholder.MEILISEARCH_KEY}";
-      "LONGVIEW_DB_PW_FILE".content = "password ${config.sops.placeholder.LONGVIEW_DB_PW}";
     };
   };
 
@@ -164,7 +167,7 @@ in {
         forceSSL = true;
         enableACME = true;
 
-        root = "${dataDir}/${DOMAIN}/current/public";
+        root = "${hostPath}/${DOMAIN}/current/public";
 
         locations."/".tryFiles = "$uri $uri/ /index.php?$query_string";
 
@@ -262,13 +265,14 @@ in {
     wants = ["mysql.service"];
     after = ["sops-nix.service" "mysql.service"];
     wantedBy = ["multi-user.target"];
+    script = ''
+      ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${app}'@'localhost' IDENTIFIED BY '$(cat ${config.sops.secrets.DB_PW.path})';"
+      ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${config.services.longview.mysqlUser}'@'localhost' IDENTIFIED BY '$(cat ${config.sops.secrets.LONGVIEW_DB_PW.path})';"
+    '';
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
       User = "root";
-      ExecStart = ''
-        ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${app}'@'localhost' IDENTIFIED BY '$(cat ${config.sops.secrets.DB_PW.path})'; ALTER USER '${config.services.longview.mysqlUser}'@'localhost' IDENTIFIED BY '$(cat ${config.sops.secrets.LONGVIEW_DB_PW.path})';"
-      '';
     };
   };
 
@@ -291,7 +295,7 @@ in {
     enable = true;
     apiKeyFile = config.sops.secrets.LONGVIEW_KEY.path;
     mysqlUser = "longview";
-    mysqlPasswordFile = config.sops.templates.LONGVIEW_DB_PW_FILE.path;
+    mysqlPasswordFile = config.sops.secrets.LONGVIEW_DB_PW.path;
   };
 
   # This option defines the first version of NixOS you have installed on this particular machine,
