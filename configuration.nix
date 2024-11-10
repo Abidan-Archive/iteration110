@@ -8,8 +8,7 @@
   USER = "HOST_USER";
   DOMAIN = "next.abidanarchive.com";
   app = "abidan";
-  dataDir = "/home/${USER}";
-  hostPath = "/srv/http";
+  hostDir = "/srv/http";
 in {
   imports = [
     # Include the results of the hardware scan.
@@ -40,20 +39,55 @@ in {
   # Linode region is Atlanta
   time.timeZone = "America/New_York";
 
-  users.users."${USER}" = {
-    isNormalUser = true;
-    home = dataDir;
-    extraGroups = ["wheel" "networkmanager" "nginx" app];
-    openssh.authorizedKeys.keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHJbtlS3h7escz5e1Jgdgc4ZHfH4adAxNq9AwXPWw0+a ${USER}"];
+  # User setup
+  users = {
+    users = {
+      # User for SSH access
+      ${USER} = {
+        isNormalUser = true;
+        extraGroups = ["wheel" "networkmanager" "nginx" app];
+        openssh.authorizedKeys.keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHJbtlS3h7escz5e1Jgdgc4ZHfH4adAxNq9AwXPWw0+a ${USER}"];
+      };
+      # User for phpfpm systemd process
+      ${app} = {
+        group = app;
+        isSystemUser = true;
+        createHome = true;
+        home = hostDir;
+        extraGroups = ["nginx"];
+      };
+      # Allow nginx to access SSL certificates
+      "nginx".extraGroups = ["acme"];
+    };
+    # Ensure phpfpm and nginx group exist
+    groups = {
+      ${app} = {};
+      "nginx" = {};
+    };
   };
-  users.groups.nginx = {};
-  users.users.nginx.extraGroups = ["acme"];
-  users.groups.abidan = {};
-  users.users."${app}" = {
-    isSystemUser = true;
-    group = app;
-    extraGroups = ["nginx"];
-    home = hostPath;
+
+  # Secret management
+  sops = {
+    defaultSopsFile = ./secrets.yaml;
+    defaultSopsFormat = "yaml";
+    age.keyFile = "/home/${USER}/.config/sops/age/keys.txt";
+    secrets = {
+      ENV_KEY = {
+        mode = "0440";
+        group = app;
+      };
+      DB_PW = {};
+      MEILISEARCH_KEY = {};
+      ACME_KEY = {
+        mode = "0440";
+        group = "acme";
+      };
+      LONGVIEW_KEY = {};
+      LONGVIEW_DB_PW = {};
+    };
+    templates = {
+      "MEILISEARCH_KEY_FILE".content = "MEILI_MASTER_KEY=${config.sops.placeholder.MEILISEARCH_KEY}";
+    };
   };
 
   # List packages installed in system profile. To search, run:
@@ -92,37 +126,9 @@ in {
     audiowaveform # Required by app for generating waveform .dats
   ];
 
-  # Secret management
-  sops = {
-    defaultSopsFile = ./secrets.yaml;
-    defaultSopsFormat = "yaml";
-    age.keyFile = "/home/${USER}/.config/sops/age/keys.txt";
-    secrets = {
-      ENV_KEY = {
-        mode = "0440";
-        group = app;
-      };
-      DB_PW = {};
-      MEILISEARCH_KEY = {};
-      ACME_KEY = {
-        mode = "0440";
-        group = "acme";
-      };
-      LONGVIEW_KEY = {};
-      LONGVIEW_DB_PW = {};
-    };
-    templates = {
-      "MEILISEARCH_KEY_FILE".content = "MEILI_MASTER_KEY=${config.sops.placeholder.MEILISEARCH_KEY}";
-    };
-  };
-
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
-  programs.mtr.enable = true;
-  # programs.gnupg.agent = {
-  #   enable = true;
-  #   enableSSHSupport = true;
-  # };
+  programs.mtr.enable = true; # Linode: used by linode support
 
   # Services
   # Enable the OpenSSH daemon.
@@ -167,7 +173,7 @@ in {
         forceSSL = true;
         enableACME = true;
 
-        root = "${hostPath}/${DOMAIN}/current/public";
+        root = "${hostDir}/${DOMAIN}/public";
 
         locations."/".tryFiles = "$uri $uri/ /index.php?$query_string";
 
@@ -229,7 +235,7 @@ in {
     pools."${app}" = {
       user = app;
       settings = {
-        "listen.owner" = config.services.nginx.user;
+        "listen.owner" = app;
         "pm" = "ondemand";
         "pm.max_children" = 10;
         "pm.start_servers" = 2;
