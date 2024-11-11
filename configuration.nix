@@ -6,9 +6,11 @@
 }: let
   MAINTAINER_EMAIL = "hey@manning390.com";
   USER = "HOST_USER";
-  DOMAIN = "next.abidanarchive.com";
   app = "abidan";
-  hostDir = "/srv/http";
+  domain = "next.abidanarchive.com";
+  srv = "/srv";
+  hostDir = "${srv}/http";
+  dataDir = "${hostDir}/${domain}";
 in {
   imports = [
     # Include the results of the hardware scan.
@@ -52,12 +54,9 @@ in {
       ${app} = {
         group = app;
         isSystemUser = true;
-        createHome = true;
-        home = hostDir;
-        extraGroups = ["nginx"];
       };
       # Allow nginx to access SSL certificates
-      "nginx".extraGroups = ["acme"];
+      "nginx".extraGroups = ["acme" app];
     };
     # Ensure phpfpm and nginx group exist
     groups = {
@@ -150,7 +149,7 @@ in {
       dnsResolver = "1.1.1.1:53";
     };
     certs = {
-      "${DOMAIN}" = {
+      "${domain}" = {
         dnsProvider = "linode";
         webroot = null;
         credentialFiles."LINODE_TOKEN_FILE" = config.sops.secrets.ACME_KEY.path;
@@ -168,12 +167,12 @@ in {
     recommendedTlsSettings = true;
 
     virtualHosts = {
-      "${DOMAIN}" = {
+      "${domain}" = {
         default = true;
         forceSSL = true;
         enableACME = true;
 
-        root = "${hostDir}/${DOMAIN}/public";
+        root = "${hostDir}/${domain}/current/public";
 
         locations."/".tryFiles = "$uri $uri/ /index.php?$query_string";
 
@@ -228,6 +227,33 @@ in {
         }
       }
     '';
+  };
+
+  systemd.services.setup-srv-directories = {
+    description = "Create directories for rolling release web files";
+    wantedBy = ["multi-user.target"];
+    script = ''
+      mkdir -p ${hostDir}
+      chmod 755 ${srv}
+      chmod 755 ${hostDir}
+
+      # ${app}
+      mkdir -p ${dataDir}/{artifacts,releases,storage}
+      mkdir -p ${dataDir}/storage/{app,framework,logs}
+      mkdir -p ${dataDir}/storage/app/public
+      mkdir -p ${dataDir}/storage/framework/{cache,sessions,views}
+      chmod 775 ${dataDir}
+      chmod 775 ${dataDir}/artifacts
+      chmod 775 ${dataDir}/releases
+      chmod -R 775 ${hostDir}/${domain}/storage
+
+      chown -R ${app}:${app} ${hostDir}
+    '';
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      User = "root";
+    };
   };
 
   services.phpfpm = {
