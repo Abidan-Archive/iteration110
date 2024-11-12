@@ -69,7 +69,7 @@ in {
   sops = {
     defaultSopsFile = ./secrets.yaml;
     defaultSopsFormat = "yaml";
-    age.keyFile = "/home/${USER}/.config/sops/age/keys.txt";
+    age.keyFile = "/home/${USER}/.config/sops/age/keys.txt"; # File must be manually placed on server
     secrets = {
       ENV_KEY = {
         mode = "0440";
@@ -121,6 +121,7 @@ in {
       '';
     })
     php83Packages.composer
+    nodejs_22 # For inertia SSR
     ffmpeg # Required by app for audio snips
     audiowaveform # Required by app for generating waveform .dats
   ];
