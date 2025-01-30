@@ -162,7 +162,11 @@ in {
 
   services.nginx = {
     enable = true;
+
     recommendedGzipSettings = true;
+    recommendedBrotliSettings = true;
+    recommendedZstdSettings = true;
+
     recommendedOptimisation = true;
     recommendedProxySettings = true;
     recommendedTlsSettings = true;
@@ -274,6 +278,20 @@ in {
         "php_admin_value[disable_functions]" = "exec,passthru,shell_exec,system";
         "php_admin_flag[allow_url_fopen]" = "off";
       };
+    };
+  };
+
+  systemd.services.laravel-queue-worker = {
+    description = "Laravel Queue Worker";
+    after = ["network.target"];
+    wantedBy = ["multi-user.target"];
+    serviceConfig = {
+      User = app;
+      Group = app;
+      Restart = "always";
+      RestartSec = "10s";
+      ExecStart = "${pkgs.php83}/bin/php /path/to/your/laravel/artisan queue:work --sleep=3 --tries=3 --max-time=3600";
+      WorkingDirectory = "${hostDir}/${domain}/current";
     };
   };
 
