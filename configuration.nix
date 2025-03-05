@@ -98,6 +98,8 @@ in {
     mtr # Linode: used by support
     sysstat # Linode: used by linode support
     git
+    nh # better nix commands
+    htop # system monitoring
     (php83.buildEnv {
       extensions = {
         enabled,
@@ -125,6 +127,15 @@ in {
     ffmpeg # Required by app for audio snips
     audiowaveform # Required by app for generating waveform .dats
   ];
+
+  # To switch, pass --update to update
+  # nh os switch .
+  programs.nh = {
+    enable = true;
+    clean.enable = true;
+    clean.extraArgs = "--keep-since 5d --keep 3";
+    flake = "/etc/nixos";
+  };
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
