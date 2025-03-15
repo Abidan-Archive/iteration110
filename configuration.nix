@@ -11,6 +11,27 @@
   srv = "/srv";
   hostDir = "${srv}/http";
   dataDir = "${hostDir}/${domain}";
+  php-built = (pkgs.php83.buildEnv {
+      extensions = {
+        enabled,
+        all,
+      }:
+        enabled
+        ++ (with all; [
+          ctype
+          curl
+          dom
+          fileinfo
+          mbstring
+          openssl
+          pdo
+          session
+          tokenizer
+          redis
+        ]);
+      extraConfig = ''
+      '';
+    });
 in {
   imports = [
     # Include the results of the hardware scan.
@@ -21,6 +42,7 @@ in {
   boot.loader.grub.enable = true;
 
   nix.settings.experimental-features = ["nix-command" "flakes"];
+  nix.settings.trusted-users = [ "root" "${USER}" "@wheel" ];
 
   # For some reason on this nixos system on linode vm dns queries over ipv6 fail
   # lego, the ACME software, refuses to make a flag to force ipv4 and strong prefers ipv6
@@ -70,6 +92,7 @@ in {
     defaultSopsFile = ./secrets.yaml;
     defaultSopsFormat = "yaml";
     age.keyFile = "/home/${USER}/.config/sops/age/keys.txt"; # File must be manually placed on server
+
     secrets = {
       ENV_KEY = {
         mode = "0440";
@@ -100,28 +123,8 @@ in {
     git
     nh # better nix commands
     htop # system monitoring
-    (php83.buildEnv {
-      extensions = {
-        enabled,
-        all,
-      }:
-        enabled
-        ++ (with all; [
-          ctype
-          curl
-          dom
-          fileinfo
-          mbstring
-          openssl
-          pdo
-          session
-          tokenizer
-          xml
-          redis
-        ]);
-      extraConfig = ''
-      '';
-    })
+    redis
+    php-built
     php83Packages.composer
     nodejs_22 # For inertia SSR
     ffmpeg # Required by app for audio snips
@@ -181,6 +184,8 @@ in {
     recommendedOptimisation = true;
     recommendedProxySettings = true;
     recommendedTlsSettings = true;
+
+    clientMaxBodySize = "102M"; # Allow us to upload audio files up to 100MB w/ buffer
 
     virtualHosts = {
       "${domain}" = {
@@ -273,7 +278,7 @@ in {
   };
 
   services.phpfpm = {
-    phpPackage = pkgs.php83;
+    phpPackage = php-built;
     pools."${app}" = {
       user = app;
       settings = {
@@ -288,6 +293,9 @@ in {
         "security.limit_extensions" = ".php";
         "php_admin_value[disable_functions]" = "exec,passthru,shell_exec,system";
         "php_admin_flag[allow_url_fopen]" = "off";
+        "php_admin_value[upload_max_filesize]" = "100M";
+        "php_admin_value[post_max_size]" = "102M";
+        "php_admin_value[memory_limit]" = "256M";
       };
     };
   };
@@ -301,7 +309,7 @@ in {
       Group = app;
       Restart = "always";
       RestartSec = "10s";
-      ExecStart = "${pkgs.php83}/bin/php /path/to/your/laravel/artisan queue:work --sleep=3 --tries=3 --max-time=3600";
+      ExecStart = "${php-built}/bin/php ${hostDir}/${domain}/current/artisan queue:work --sleep=3 --tries=3 --max-time=3600";
       WorkingDirectory = "${hostDir}/${domain}/current";
     };
   };
