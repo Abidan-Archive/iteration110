@@ -238,6 +238,23 @@ in {
         enableACME = true;
         globalRedirect = domain;
       };
+
+      # Trying a fix on wiki
+      "wiki2.${domain}" = {
+        forceSSL = true;
+        enableACME = true;
+
+        locations."/" = {
+          proxyPass = "http://208.115.98.20"; # Old gnomishthoughts server
+          extraConfig = ''
+            proxy_ssl_verify off;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X_Forwarded-Proto $scheme;
+          '';
+        };
+      };
     };
 
     appendHttpConfig = ''
