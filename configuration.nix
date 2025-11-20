@@ -7,7 +7,7 @@
   MAINTAINER_EMAIL = "hey@manning390.com";
   USER = "HOST_USER";
   app = "abidan";
-  domain = "next.abidanarchive.com";
+  domain = "abidanarchive.com";
   srv = "/srv";
   hostDir = "${srv}/http";
   dataDir = "${hostDir}/${domain}";
@@ -228,11 +228,16 @@ in {
       };
 
       # Redirect 'www' to 'non-www'
-      # "www.${DOMAIN}" = {
-      #   forceSSL = true;
-      #   enableACME = true;
-      #   globalRedirect = DOMAIN;
-      # };
+      "www.${domain}" = {
+        forceSSL = true;
+        enableACME = true;
+        globalRedirect = domain;
+      };
+      "next.${domain}" = {
+        forceSSL = true;
+        enableACME = true;
+        globalRedirect = domain;
+      };
     };
 
     appendHttpConfig = ''
