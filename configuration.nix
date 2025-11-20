@@ -5,7 +5,7 @@
   ...
 }: let
   MAINTAINER_EMAIL = "hey@manning390.com";
-  USER = "HOST_USER";
+  USER = "telariel";
   app = "abidan";
   domain = "abidanarchive.com";
   srv = "/srv";
