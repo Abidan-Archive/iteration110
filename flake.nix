@@ -5,7 +5,7 @@
 
     inputs = {
         # Nixpkgs
-        nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
+        nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
         nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
         # Home manager
@@ -15,6 +15,11 @@
         # Secrets
         sops-nix.url = "github:Mic92/sops-nix";
         sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+
+        abidan-environment = {
+            url = "github:Abidan-Archive/archive/prod";
+            flake = false;
+        };
     };
 
     outputs = {
@@ -25,7 +30,7 @@
     let
         inherit (self) outputs;
     in {
-        nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+        nixosConfigurations.abidan = nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
             specialArgs = {inherit inputs outputs;};
             modules = [

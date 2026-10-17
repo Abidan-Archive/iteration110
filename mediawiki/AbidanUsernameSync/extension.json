@@ -1,0 +1,35 @@
+{
+  "name": "AbidanUsernameSync",
+  "version": "1.0.0",
+  "description": "Synchronizes existing wiki usernames from verified Abidan OpenID Connect claims at login.",
+  "type": "other",
+  "requires": {
+    "MediaWiki": ">= 1.45.0",
+    "extensions": {
+      "OpenID Connect": ">= 8.3.0"
+    }
+  },
+  "AutoloadNamespaces": {
+    "MediaWiki\\Extension\\AbidanUsernameSync\\": "includes/"
+  },
+  "ServiceWiringFiles": ["ServiceWiring.php"],
+  "attributes": {
+    "PluggableAuth": {
+      "AbidanOpenIDConnect": {
+        "class": "MediaWiki\\Extension\\AbidanUsernameSync\\AbidanOpenIDConnect",
+        "services": [
+          "MainConfig",
+          "AuthManager",
+          "OpenIDConnectClient",
+          "UserIdentityLookup",
+          "UserNameUtils",
+          "OpenIDConnectStore",
+          "TitleFactory",
+          "GlobalIdGenerator",
+          "UserFactory"
+        ]
+      }
+    }
+  },
+  "manifest_version": 2
+}

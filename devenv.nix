@@ -16,7 +16,7 @@
   ];
 
   scripts.deploy.exec = ''
-    NIX_SSHOPTS="-o RequestTTY=force" nixos-rebuild -j auto --flake .#nixos --target-host abidan --use-remote-sudo switch
+    NIX_SSHOPTS="-o RequestTTY=force" nixos-rebuild -j auto --flake .#abidan --target-host abidan --use-remote-sudo switch
   '';
 
   # See full reference at https://devenv.sh/reference/options/
