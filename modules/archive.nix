@@ -131,7 +131,8 @@ in {
       inherit phpPackage;
       pools.${app} = {
         user = app;
-        phpEnv = runtimeEnvironment;
+        # FPM's INI parser treats an unquoted `false` as an empty value.
+        phpEnv = lib.mapAttrs (_: value: "\"${value}\"") runtimeEnvironment;
         settings = {
           "listen.owner" = app;
           "pm" = "ondemand";
