@@ -109,6 +109,12 @@ in {
         mkdir -p ${dataDir}/storage/{app,framework,logs}
         mkdir -p ${dataDir}/storage/app/public
         mkdir -p ${dataDir}/storage/framework/{cache,sessions,views}
+        # Deploy-time Artisan and the application user share runtime files.
+        # Inherit the application group instead of the deployer's primary group.
+        chmod g+s ${dataDir}/storage \
+          ${dataDir}/storage/{app,framework,logs} \
+          ${dataDir}/storage/app/public \
+          ${dataDir}/storage/framework/{cache,sessions,views}
       '';
       serviceConfig = {Type = "oneshot"; RemainAfterExit = true; User = app; Group = app;};
     };
