@@ -67,6 +67,7 @@ in {
                       'type' => 'mapped',
                       'map' => [
                           'sysop' => [ 'wiki_roles' => 'wiki_admin' ],
+                          'interface-admin' => [ 'wiki_roles' => 'wiki_admin' ],
                           'moderator' => [ 'wiki_roles' => 'wiki_moderator' ]
                       ]
                   ]
