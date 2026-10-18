@@ -10,3 +10,4 @@ devenv.local.nix
 
 # Ignore backup
 backups/*
+__pycache__/

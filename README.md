@@ -84,6 +84,10 @@ is passed through GitHub Actions.
 
 ## Deploy
 
+For the Laravel 13 and restricted deployment account rollout, follow
+**[deployment hardening](docs/deployment-hardening.md)** first, including the GitHub
+settings and one-time ownership migration.
+
 1. Add the PEM to SOPS and ensure the host's age identity is still available at
    `/home/telariel/.config/sops/age/keys.txt`. The normal build intentionally checks
    that the declared encrypted fields exist.

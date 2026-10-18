@@ -1,11 +1,16 @@
 {pkgs, ...}: let
-  inherit (import ../settings.nix {inherit pkgs;}) app deployer;
+  inherit (import ../settings.nix {inherit pkgs;}) app administrator deployer deploymentAuthorizedKeys;
 in {
   users.users = {
-    ${deployer} = {
+    ${administrator} = {
       isNormalUser = true;
       extraGroups = ["wheel" "networkmanager" "nginx" app];
-      openssh.authorizedKeys.keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHJbtlS3h7escz5e1Jgdgc4ZHfH4adAxNq9AwXPWw0+a ${deployer}"];
+      openssh.authorizedKeys.keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHJbtlS3h7escz5e1Jgdgc4ZHfH4adAxNq9AwXPWw0+a ${administrator}"];
+    };
+    ${deployer} = {
+      isNormalUser = true;
+      extraGroups = [app];
+      openssh.authorizedKeys.keys = map (key: "restrict ${key}") deploymentAuthorizedKeys;
     };
     ${app} = {
       group = app;
@@ -13,6 +18,14 @@ in {
     };
     nginx.extraGroups = ["acme" app];
   };
+  services.openssh.extraConfig = ''
+    Match User ${deployer}
+      AuthenticationMethods publickey
+      DisableForwarding yes
+      PermitTTY no
+      PermitUserRC no
+    Match all
+  '';
   users.groups = {
     ${app} = {};
     nginx = {};

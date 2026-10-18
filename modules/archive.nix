@@ -1,5 +1,5 @@
 {config, lib, pkgs, ...}: let
-  inherit (import ../settings.nix {inherit pkgs;}) app domain wikiDomain srv hostDir dataDir phpPackage;
+  inherit (import ../settings.nix {inherit pkgs;}) app domain wikiDomain hostDir dataDir phpPackage deployer;
   cfg = config.services.abidan.environment;
   oidcEnvironment = {
     APP_URL = "https://${domain}";
@@ -38,7 +38,7 @@ in {
       redis
       phpPackage
       php83Packages.composer
-      nodejs_22
+      nodejs_24
       ffmpeg
       audiowaveform
     ];
@@ -93,27 +93,38 @@ in {
       };
     };
 
+    # Root manages only root-owned containers. Never recursively chmod/chown
+    # a deployment-writable tree from a privileged service.
+    systemd.tmpfiles.rules = [
+      "d ${hostDir} 0755 root root - -"
+      "d ${dataDir} 1775 root ${app} - -"
+    ];
+
     systemd.services.setup-srv-directories = {
-      description = "Create directories for rolling release web files";
+      description = "Create application-owned shared storage";
       wantedBy = ["multi-user.target"];
+      after = ["systemd-tmpfiles-setup.service"];
       script = ''
-        mkdir -p ${hostDir}
-        chmod 755 ${srv}
-        chmod 755 ${hostDir}
-        mkdir -p ${dataDir}/{artifacts,releases,storage}
+        umask 0002
         mkdir -p ${dataDir}/storage/{app,framework,logs}
         mkdir -p ${dataDir}/storage/app/public
         mkdir -p ${dataDir}/storage/framework/{cache,sessions,views}
-        chmod 775 ${dataDir}
-        chmod 775 ${dataDir}/artifacts
-        chmod 775 ${dataDir}/releases
-        chmod -R 775 ${dataDir}/storage
-        # Preserve SSH ownership of release/artifact files across reboots so
-        # deployment and retention cleanup do not require root.
-        chown ${app}:${app} ${hostDir} ${dataDir} ${dataDir}/artifacts ${dataDir}/releases
-        chown -R ${app}:${app} ${dataDir}/storage
       '';
-      serviceConfig = {Type = "oneshot"; RemainAfterExit = true; User = "root";};
+      serviceConfig = {Type = "oneshot"; RemainAfterExit = true; User = app; Group = app;};
+    };
+
+    systemd.services.setup-deployment-directories = {
+      description = "Create deployer-owned release and artifact containers";
+      wantedBy = ["multi-user.target"];
+      after = ["systemd-tmpfiles-setup.service"];
+      script = ''
+        umask 0027
+        mkdir -p ${dataDir}/{artifacts,releases}
+        # Existing containers are migrated once by the administrator.
+        if test -O ${dataDir}/releases; then chmod 2755 ${dataDir}/releases; fi
+        if test -O ${dataDir}/artifacts; then chmod 2750 ${dataDir}/artifacts; fi
+      '';
+      serviceConfig = {Type = "oneshot"; RemainAfterExit = true; User = deployer; Group = app;};
     };
 
     services.phpfpm = {

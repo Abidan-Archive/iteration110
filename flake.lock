@@ -3,11 +3,11 @@
     "abidan-environment": {
       "flake": false,
       "locked": {
-        "lastModified": 1763601814,
-        "narHash": "sha256-GwsXvlLRP/jqvOUDjUl3og6r4d357glivlMpHI0M5CU=",
+        "lastModified": 1792278920,
+        "narHash": "sha256-QHfTwBZwOMhsd3uxGi3fJLQ1x+U4UXuQzsIZ6ZFGOw0=",
         "owner": "Abidan-Archive",
         "repo": "archive",
-        "rev": "bcd8dda5881ebb5c7ae7c6b1518b22c5ec75d9a2",
+        "rev": "4d4449f203bde01dd0cb0286488bbe1805b14489",
         "type": "github"
       },
       "original": {

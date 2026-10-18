@@ -4,7 +4,7 @@ umask 077
 
 root="$(git rev-parse --show-toplevel)"
 temporary="$(mktemp -d)"
-trap 'rm -rf "$temporary"' EXIT
+trap 'chmod u+w "$temporary/releases/one" 2>/dev/null || true; rm -rf "$temporary"' EXIT
 mkdir -p "$temporary/releases/one/bootstrap/cache"
 cp "$root/tests/fixtures/config-cache-artisan.php" "$temporary/releases/one/artisan"
 ln -s "$temporary/releases/one" "$temporary/current"
@@ -13,14 +13,21 @@ printf '%s\n' "<?php return ['fixture' => 'original'];" > "$temporary/releases/o
 
 export ABIDAN_CURRENT_RELEASE="$temporary/current"
 export ABIDAN_ENV_FILE="$temporary/environment"
-export ABIDAN_PHP="$(command -v php)"
+ABIDAN_PHP="$(command -v php)"
+export ABIDAN_PHP
 export ABIDAN_LOCK_FILE="$temporary/lock"
 
 bash "$root/scripts/refresh-laravel-config.sh"
 test "$(readlink "$temporary/releases/one/.env")" = "$temporary/environment"
+# shellcheck disable=SC2016
 "$ABIDAN_PHP" -r 'exit((require $argv[1])["fixture"] === "refreshed" ? 0 : 1);' \
   "$temporary/releases/one/bootstrap/cache/config.php"
 test "$(stat -c %a "$temporary/releases/one/bootstrap/cache/config.php")" = '640'
+
+# The service must refresh a pre-linked, deployer-owned read-only release.
+chmod 0555 "$temporary/releases/one"
+bash "$root/scripts/refresh-laravel-config.sh"
+chmod 0755 "$temporary/releases/one"
 
 before="$(sha256sum "$temporary/releases/one/bootstrap/cache/config.php")"
 export FAIL_CONFIG_REFRESH=1

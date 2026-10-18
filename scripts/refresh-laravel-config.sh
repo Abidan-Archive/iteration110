@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 umask 077
 
@@ -14,7 +15,11 @@ fi
 
 if [[ -n "$ABIDAN_ENV_FILE" ]]; then
   test -r "$ABIDAN_ENV_FILE"
-  ln -sfn "$ABIDAN_ENV_FILE" "$release/.env"
+  # Deployments pre-create this link. The service user only needs write access
+  # to bootstrap/cache, not the deployer-owned release directory.
+  if [[ "$(readlink "$release/.env" || true)" != "$ABIDAN_ENV_FILE" ]]; then
+    ln -sfn "$ABIDAN_ENV_FILE" "$release/.env"
+  fi
 fi
 
 cache_dir="$release/bootstrap/cache"

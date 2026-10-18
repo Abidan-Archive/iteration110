@@ -161,7 +161,7 @@ sudo chmod -R g+rwX "$release/bootstrap/cache"
 ```
 
 This is a one-time administrator operation, not a password supplied by CI. Ensure
-GitHub's `HOST_USER` is the configured deployer (`telariel`) and belongs to `abidan`;
+GitHub's `HOST_USER` is the configured deployer (`abidan-deploy`) and belongs to `abidan`;
 the narrow sudo rule is issued to that user.
 
 ### 5. Rebuild the host and verify

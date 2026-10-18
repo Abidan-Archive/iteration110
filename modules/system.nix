@@ -1,9 +1,9 @@
 {pkgs, ...}: let
-  inherit (import ../settings.nix {inherit pkgs;}) deployer;
+  inherit (import ../settings.nix {inherit pkgs;}) administrator;
 in {
   boot.loader.grub.enable = true;
   nix.settings.experimental-features = ["nix-command" "flakes"];
-  nix.settings.trusted-users = ["root" deployer "@wheel"];
+  nix.settings.trusted-users = ["root" administrator "@wheel"];
 
   # IPv6 DNS lookups fail on this Linode VM, including lego's ACME queries.
   networking = {

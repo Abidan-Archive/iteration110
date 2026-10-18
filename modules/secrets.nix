@@ -1,10 +1,10 @@
 {config, pkgs, ...}: let
-  inherit (import ../settings.nix {inherit pkgs;}) app deployer;
+  inherit (import ../settings.nix {inherit pkgs;}) app administrator;
 in {
   sops = {
     defaultSopsFile = ../secrets.yaml;
     defaultSopsFormat = "yaml";
-    age.keyFile = "/home/${deployer}/.config/sops/age/keys.txt";
+    age.keyFile = "/home/${administrator}/.config/sops/age/keys.txt";
 
     secrets = {
       DB_PW = {};
@@ -20,12 +20,12 @@ in {
       };
       MEDIAWIKI_INIT_ADMIN_PW = {
         owner = "mediawiki";
-        group = "mediawiki";
+        group = config.users.users.mediawiki.group;
         mode = "0400";
       };
       MEDIAWIKI_OAUTH_CLIENT_SECRET = {
         owner = "mediawiki";
-        group = "mediawiki";
+        group = config.users.users.mediawiki.group;
         mode = "0400";
         restartUnits = ["phpfpm-mediawiki.service"];
       };

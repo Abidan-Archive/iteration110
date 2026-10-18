@@ -16,11 +16,13 @@ in {
   systemd.services.mysql-set-passwords = {
     description = "Set MySQL user password";
     wants = ["mysql.service"];
-    after = ["sops-nix.service" "mysql.service"];
+    after = ["sops-install-secrets.service" "mysql.service"];
     wantedBy = ["multi-user.target"];
     script = ''
-      ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${app}'@'localhost' IDENTIFIED BY '$(cat ${config.sops.secrets.DB_PW.path})';"
-      ${pkgs.mariadb}/bin/mysql -e "ALTER USER '${config.services.longview.mysqlUser}'@'localhost' IDENTIFIED BY '$(cat ${config.sops.secrets.LONGVIEW_DB_PW.path})';"
+      ${pkgs.python3}/bin/python ${../scripts/set-mysql-passwords.py} \
+        ${pkgs.mariadb}/bin/mysql \
+        '${app}' ${config.sops.secrets.DB_PW.path} \
+        '${config.services.longview.mysqlUser}' ${config.sops.secrets.LONGVIEW_DB_PW.path}
     '';
     serviceConfig = {Type = "oneshot"; RemainAfterExit = true; User = "root";};
   };
