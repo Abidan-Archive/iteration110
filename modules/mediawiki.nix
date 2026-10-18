@@ -48,6 +48,8 @@ in {
       $wgDefaultUserOptions['vector-theme'] = 'os';
 
       $wgScribuntoDefaultEngine = 'luastandalone';
+      // The bundled generic Linux executable cannot run directly on NixOS.
+      $wgScribuntoEngineConf['luastandalone']['luaPath'] = '${pkgs.lua5_1}/bin/lua';
       // Scribunto expects bytes, not PHP ini shorthand such as "50M".
       $wgScribuntoEngineConf['luastandalone']['memoryLimit'] = 50 * 1024 * 1024;
 
