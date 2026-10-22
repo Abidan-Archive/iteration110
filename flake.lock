@@ -33,6 +33,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-php": {
+      "locked": {
+        "lastModified": 1792593785,
+        "narHash": "sha256-dEQs/r/DSIvSjw5pQro/BAqsUnFNNZ3I/qmFYzatGvc=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "8c259fc0dd1f3ccc1aaf4f9156ab16b7328b5a4f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "8c259fc0dd1f3ccc1aaf4f9156ab16b7328b5a4f",
+        "type": "github"
+      }
+    },
     "nixpkgs-unstable": {
       "locked": {
         "lastModified": 1791456040,
@@ -53,6 +69,7 @@
       "inputs": {
         "abidan-environment": "abidan-environment",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-php": "nixpkgs-php",
         "nixpkgs-unstable": "nixpkgs-unstable",
         "sops-nix": "sops-nix"
       }
